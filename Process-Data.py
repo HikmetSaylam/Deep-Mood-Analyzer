@@ -3,7 +3,7 @@ import re
 import string
 from sklearn.model_selection import train_test_split
 from nltk.corpus import stopwords
-import nltk
+import random
 
 # Load stop words for English
 stop_words = set(stopwords.words('english'))
@@ -44,14 +44,68 @@ X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_
 train_df = pd.DataFrame({'Sentiment': y_train, 'Cleaned_Review': X_train})
 test_df = pd.DataFrame({'Sentiment': y_test, 'Cleaned_Review': X_test})
 
-# Save the training and test sets to CSV files
-train_output_path = "training_set.csv"
-test_output_path = "test_set.csv"
+# Data Augmentation: Synonym Replacement
+def simple_tokenize(text):
+    # Convert to lowercase, remove numbers and punctuation
+    text = text.lower()
+    text = re.sub(r'\d+', '', text)  # Remove numbers
+    text = re.sub(r'[^\w\s]', '', text)  # Remove punctuation
+    words = text.split()  # Split into words
+    return words
 
-train_df.to_csv(train_output_path, index=False)
-test_df.to_csv(test_output_path, index=False)
+# Simple synonym replacement with predefined synonyms
+synonym_dict = {
+    "good": ["great", "excellent", "fantastic"],
+    "bad": ["terrible", "horrible", "awful"],
+    "happy": ["joyful", "content", "pleased"],
+    "sad": ["unhappy", "sorrowful", "depressed"],
+    "fast": ["quick", "speedy", "rapid"],
+    "slow": ["lethargic", "sluggish", "delayed"]
+}
 
-# Display information about the saved datasets
-print("\nDatasets Created and Saved Successfully:")
-print(f"Training Set: {train_output_path} ({len(train_df)} rows)")
+def synonym_replacement(text):
+    words = simple_tokenize(text)  # Tokenize into words
+    augmented_text = []
+    
+    for word in words:
+        if word in synonym_dict:
+            # Randomly choose a synonym for the word
+            word = random.choice(synonym_dict[word])
+        augmented_text.append(word)
+    
+    return " ".join(augmented_text)
+
+# Data augmentation: Create 2 new variations for each review
+augmented_reviews = []
+augmented_labels = []
+
+for index, row in train_df.iterrows():
+    review = row['Cleaned_Review']
+    sentiment = row['Sentiment']
+    
+    augmented_reviews.append(review)  # Add original review
+    augmented_labels.append(sentiment)  # Add original label
+    
+    # Add 2 new variations
+    augmented_reviews.append(synonym_replacement(review))  # New variation with synonym replacement
+    augmented_labels.append(sentiment)  # Add the same label
+    
+    # You can also add other data augmentation techniques here (e.g., changing word order, etc.)
+
+# Convert augmented data into DataFrame
+augmented_df = pd.DataFrame({'Sentiment': augmented_labels, 'Cleaned_Review': augmented_reviews})
+
+# Create new training and test sets using the augmented data
+X_train_augmented = augmented_df['Cleaned_Review']
+y_train_augmented = augmented_df['Sentiment']
+
+# Save the new training and test sets to CSV files
+train_output_path = "augmented_training_set.csv"
+test_output_path = "test_set.csv"  # Test set remains unchanged
+
+train_df_augmented = pd.DataFrame({'Sentiment': y_train_augmented, 'Cleaned_Review': X_train_augmented})
+train_df_augmented.to_csv(train_output_path, index=False)
+
+print("\nAugmented Dataset Created and Saved Successfully:")
+print(f"Augmented Training Set: {train_output_path} ({len(train_df_augmented)} rows)")
 print(f"Test Set: {test_output_path} ({len(test_df)} rows)")
